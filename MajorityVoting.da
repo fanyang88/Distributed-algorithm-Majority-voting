@@ -1,0 +1,144 @@
+
+from operator import itemgetter
+
+class MajorityVoting(DistProcess):
+     
+   def setup(ps, N, quota):
+        ts= None
+        Q=[]
+        VOTE=[]
+        voted= False
+        voteeproc= None
+        voteets= -1
+        in_cs= False
+        requesting = False
+        ptotal= N
+        req_quota = quota
+        s=ps
+
+   def cs(task):
+       # to enter cs, enque and send request to all, then await replies from all
+         --start
+         ts= logical_clock() 
+         #output("Is requesting.")
+         
+         send(Request(ts, self), s)
+         requesting = True
+
+         --wait
+         await(len(VOTE)>=ptotal/2 and requesting == True)
+         in_cs= True
+                  
+       # critical section
+         --cs     
+          
+         task()
+         work() 
+          
+
+       # to exit cs
+         --release  
+             
+         output("Is releasing.")  
+        # if(len(VOTE)>0):
+         #    VOTE.pop()
+        
+         send(RemoveVote(self), VOTE)
+         requesting= False
+         in_cs= False
+
+
+         --end
+         VOTE=[]
+         
+         
+         
+   def main():
+          def anounce():
+               output("In cs!")
+          
+          i=0      
+          while i< req_quota:
+              #purge_received()
+               cs(anounce)
+               i+=1
+          print(i)
+          await(False)  
+
+          
+     # when receiving requests from others, enque and reply     
+   def OnRequest(ts_j, pj):
+     if(in_cs ==False):
+        if(voted== False):
+           voted= True
+           voteeproc = pj
+           voteets = ts_j
+           send(Vote(self), pj)
+        else:
+           if(ts_j < voteets):
+                Q.append((pj,ts_j))
+                send(Rescind(self,voteets), voteeproc)
+           else:
+                Q.append((pj, ts_j))
+                sorted(Q, key=itemgetter(1))
+
+                #Q.put((pj, ts_j))
+
+
+   def OnRemoveVote(pj):
+         self.voted= False
+         #if(any(item== pj for item in VOTE)):
+               #ind= VOTE.index(pj)
+               #VOTE.pop(ind)
+
+         if(len(Q)>0):
+              sorted(Q, key=itemgetter(1))
+              (proc,value)= Q[0]
+              Q.pop(0)
+            
+              voteeproc= proc
+              voteets= value
+              send(Vote(self), voteeproc)
+              voted = True
+  
+   def OnVote(pj):
+        if(len(VOTE)<= ptotal/2 and requesting == True):
+           VOTE.append(pj)
+        else:
+           send(RemoveVote(self), pj)
+
+   def OnRescind(pj,oldts):
+          if(in_cs==False):
+             send(RemoveVote(self), pj)
+             VOTE.remove(pj)
+             send(Request(pj,oldts),pj)
+
+import random
+
+def random_samples(n,total):
+
+        dividers = sorted(random.sample(range(1,total),n-1))
+        return [a - b for a, b in zip(dividers + [total], [0] + dividers)]
+ 
+
+def main():
+     # configuration: number of processes
+     # create n process
+     n= int(input("number of sites: "))
+     #n = int(sys.argv[1]) if len(sys.argv) > 1 else 7
+     request_total = int(input("total number of requests for all sites: "))
+     #request_total = int(sys.argv[2]) if len(sys.argv) >2 else 14
+
+     ps = createprocs(MajorityVoting, n)
+
+     #request number for each process
+     request_quota = random_samples(n,request_total);
+     
+     print("sites list:")
+     print(ps)
+ 
+     for p,quota in zip(ps,request_quota):
+         setupprocs([p], [ps-{p},n,quota])
+	  	
+     startprocs(ps)
+     for p in ps: p.join()
