@@ -1,3 +1,8 @@
+
+This algorithm is simulated by Disalgo which is based on python, and through defining a series of functions 
+for sending and receiving message from one site to another.It takes N processes and R requests for each 
+processes, and mutual exclusion is guaranteed while accessing the CS.
+
 To implement this algorithm, first define two queues. One is waiting queue which collects the requests from other site. 
 The other is voting queue which collects the votes send from other sites.
 Assume the site i request to enter CS, and it sends out requests to all the other sites. Defined the following functions
